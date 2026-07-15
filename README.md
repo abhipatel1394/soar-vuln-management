@@ -6,7 +6,7 @@
 
  ## What this does
 
- Automates the full vulnerbility management loop:
+ Automates the full vulnerability management loop:
 
  1. Scheduled scans against target hosts using **OpenVAS / Greenbone (GVM)**
  2. Scheduling and Orchestration via **n8n**
@@ -15,7 +15,7 @@
 
  ## Why this exists
 
- Most no-code automation platforms (like n8n) have no way to talk to OpenVAS, becuase OpenVAS communicates over GMP (Greenbone Management Protocol - XML over a TCP/TLS socket) rather than plain HTTP/REST. This projects builds and utilizes the missing translation later, rather than replacing the OpenVAS scanner with a scanner utilizing built-in REST API (e.g. Nessus). See [`docs/architecture.md`](./docs/architecture.md) for detailed reasoning.
+ Most no-code automation platforms (like n8n) have no way to talk to OpenVAS, because OpenVAS communicates over GMP (Greenbone Management Protocol - XML over a TCP/TLS socket) rather than plain HTTP/REST. This projects builds and utilizes the missing translation later, rather than replacing the OpenVAS scanner with a scanner utilizing built-in REST API (e.g. Nessus). See [`docs/architecture.md`](./docs/architecture.md) for detailed reasoning.
 
  ## Architecture
 
@@ -32,7 +32,30 @@
 | `docs/` | Architecture decisions, setup log, testing notes, sample output |
 
 ## Setup 
-_(filled in as each component is built, implemented and verified)_
+
+Requires Docker Desktop, an existing Greenbone Community Containers deployment, and n8n running in Docker.
+
+
+1. Clone this repo
+2. Build and run the bridge
+
+```
+cd gvm-bridge
+cp .env.example .env
+```
+
+Edit .env with your real GVM admin password, then:
+```
+docker compose up -d --build
+```
+
+
+3. Import [n8n-workflows/vuln-scan-pipeline.json](./n8n-workflows/vuln-scan-pipeline.json) into your n8n instance
+4. Update the target task name in the workflow's Set Target node to match your own GVM task
+5. Activate the Schedule Trigger, or run manually to test
+
+
+**Status:** Phase 1 complete. Scheduled scanning, orchestration, and report extraction are fully working end to end. Report parsing into structured data is the next planned step.
 
 ## Roadmap
 

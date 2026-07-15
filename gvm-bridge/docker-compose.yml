@@ -1,0 +1,24 @@
+services:
+  gvm-bridge:
+    build: .
+    container_name: gvm-bridge
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - GVM_PASSWORD=${GVM_PASSWORD}
+    volumes:
+      - greenbone-community-edition_gvmd_socket_vol:/run/gvmd
+    networks:
+      - greenbone-community-edition_default
+      - n8n-local_default
+
+networks:
+  greenbone-community-edition_default:
+    external: true
+  n8n-local_default:
+    external: true
+
+volumes:
+  greenbone-community-edition_gvmd_socket_vol:
+    external: true

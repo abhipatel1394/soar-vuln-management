@@ -1,0 +1,402 @@
+{
+  "name": "Vuln Scan Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 3
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        16,
+        0
+      ],
+      "id": "45fa9f53-6126-4947-a00b-07c3eb85f653",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0b553b8-ce75-4ef7-910f-0f1613fa0a14",
+              "name": "target_task_name",
+              "value": "Metasploitable - Full Scan",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "6c566927-da15-4afa-9688-a9d7c40b6c5b",
+      "name": "Set Target"
+    },
+    {
+      "parameters": {
+        "url": "http://gvm-bridge:5000/tasks",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "xml",
+        "body": "<get_version/>",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "6aa8fee1-8a12-47c2-8de8-dd3323397ab5",
+      "name": "Get Tasks"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.first().json.tasks;\nconst targetName = $('Set Target').first().json.target_task_name;\nconst target = tasks.find(t => t.name === targetName);\n\nif (!target) {\n  throw new Error(`Task not found: ${targetName}`);\n}\n\nreturn [{ json: { task_id: target.id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "34838bd1-2e64-449d-ae11-a69916de036a",
+      "name": "Extract Task ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://gvm-bridge:5000/start_scan/{{ $json.task_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        0
+      ],
+      "id": "72e1a39b-1754-424f-973e-b3192f3d5e06",
+      "name": "Start Scan"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1264,
+        -128
+      ],
+      "id": "42569abb-67f8-43f3-8781-c584d44c8695",
+      "name": "Wait",
+      "webhookId": "54feca68-6166-40d5-aed8-14eda085bb28"
+    },
+    {
+      "parameters": {
+        "url": "=http://gvm-bridge:5000/report_status/{{ $('Start Scan').first().json.report_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1456,
+        -128
+      ],
+      "id": "48e2dec3-e1e1-473b-8f93-9e268d6ab32e",
+      "name": "Check Report Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "71a8b266-d300-40d8-96d5-3475fd2ec437",
+              "leftValue": "={{ $json.scan_run_status }}",
+              "rightValue": "Done",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1664,
+        -128
+      ],
+      "id": "fc1603de-3e2a-4b38-ae44-dccd6b7b17e2",
+      "name": "Is Scan Done?"
+    },
+    {
+      "parameters": {
+        "url": "=http://gvm-bridge:5000/report/{{ $('Extract Task ID').first().json.task_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1856,
+        -96
+      ],
+      "id": "c3ef8b14-d7e6-4e19-8f97-16e56763dcb4",
+      "name": "Get Report"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/data/reports/metasploitable-scan-{{ $now.format('yyyy-MM-dd-HHmmss') }}.json",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2272,
+        -96
+      ],
+      "id": "302464d2-9153-4c4e-afb5-ce83256ebb18",
+      "name": "Save Report"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "report_xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2064,
+        -96
+      ],
+      "id": "9eb6e13b-4bd0-4735-b55c-8ad50e8081e7",
+      "name": "Convert JSON -> Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9f200788-2417-4e08-813d-d0b36fdd8e50",
+              "leftValue": "={{ $json.report_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "7b1c8246-87af-4685-9dcf-6572d7b968f3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Scan could not be started for task_id: {{ $('Extract Task ID').first().json.task_id }}. Possible causes: (1) a scan is already running on this task, (2) the task ID no longer exists in GVM, (3) the bridge lost its connection to gvmd. Check gvm-bridge container logs for the specific error."
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        160
+      ],
+      "id": "02169ed3-54db-4773-931a-5279be8f9d57",
+      "name": "Stop and Error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Target": {
+      "main": [
+        [
+          {
+            "node": "Get Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tasks": {
+      "main": [
+        [
+          {
+            "node": "Extract Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Task ID": {
+      "main": [
+        [
+          {
+            "node": "Start Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Scan": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Check Report Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Report Status": {
+      "main": [
+        [
+          {
+            "node": "Is Scan Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Scan Done?": {
+      "main": [
+        [
+          {
+            "node": "Get Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Report": {
+      "main": [
+        [
+          {
+            "node": "Convert JSON -> Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert JSON -> Data": {
+      "main": [
+        [
+          {
+            "node": "Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d6e3cab0-e889-4cbd-a46c-0236f9085e0d",
+  "meta": {
+    "instanceId": "4b4284ef686b7b807c00ae702b9675d0f03ba0e8c04f43300f3dfd40d16f306e"
+  },
+  "nodeGroups": [],
+  "id": "djXOpiFHp3Hwd6FW",
+  "tags": []
+}
